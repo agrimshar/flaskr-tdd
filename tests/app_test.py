@@ -81,3 +81,55 @@ def test_delete_message(client):
     rv = client.get('/delete/1')
     data = json.loads(rv.data)
     assert data["status"] == 1
+
+def test_delete_message(client):
+    """Ensure the messages are being deleted"""
+    rv = client.get("/delete/1")
+    data = json.loads(rv.data)
+    assert data["status"] == 0
+    login(client, app.config["USERNAME"], app.config["PASSWORD"])
+    rv = client.get("/delete/1")
+    data = json.loads(rv.data)
+    assert data["status"] == 1
+
+def test_search(client):
+    """Ensure that search returns correct results"""
+    login(client, app.config["USERNAME"], app.config["PASSWORD"])
+    client.post(
+        "/add",
+        data=dict(title="Hello", text="HTML allowed here"),
+        follow_redirects=True,
+    )
+    client.post(
+        "/add",
+        data=dict(title="Goodbye", text="HTML allowed here"),
+        follow_redirects=True,
+    )
+    rv = client.get("/search/?query=Hello")
+    assert b"Hello" in rv.data
+    assert b"Goodbye" not in rv.data
+    rv = client.get("/search/?query=Goodbye")
+    assert b"Goodbye" in rv.data
+    assert b"Hello" not in rv.data
+
+def test_login_required(client):
+    """Ensure that user can post messages"""
+    rv = client.post(
+        "/add",
+        data=dict(title="Hello", text="HTML is allowed here"),
+        follow_redirects=True,
+    )
+    assert b"Hello" not in rv.data
+    login(client, app.config["USERNAME"], app.config["PASSWORD"])
+    rv = client.post(
+        "/add",
+        data=dict(title="Hello", text="HTML is allowed here"),
+        follow_redirects=True,
+    )
+    assert b"Hello" in rv.data
+    logout(client)
+    rv = client.get("/delete/1")
+    assert b"Please log in." in rv.data
+    login(client, app.config["USERNAME"], app.config["PASSWORD"])
+    rv = client.get("/delete/1")
+    assert b"Hello" not in rv.data
